@@ -4,20 +4,17 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 
 public class Lexer {
 
-    private String code;
     private String lexed = "";
-    private File opened;
-    private String tokenized = "";
 
     final HashMap<String, String> SYMBOLS = new HashMap<>();
 
     public Lexer() {
-        code = "";
         SYMBOLS.put("if", "<IF>");
         SYMBOLS.put("program", "<SOP>");
         SYMBOLS.put("end_program", "<EOP>");
@@ -42,9 +39,9 @@ public class Lexer {
     }
 
     public void Tokenize(String fileName) {
-        code = fullStringify(new File(fileName));
-        preprocessCode();
-        String[] tokens = listify();
+        String code = fullStringify(new File(fileName));
+        code = preprocessCode(code);
+        ArrayList<String> tokens = listify(code);
         for (String token : tokens) {
             System.out.println(token);
         }
@@ -53,33 +50,65 @@ public class Lexer {
     }
 
     private String fullStringify(File opened) {
+        StringBuffer strb = new StringBuffer();
         try { 
             BufferedReader br = new BufferedReader(new FileReader(opened));
             Iterator<String> allLines = br.lines().iterator();
             while(allLines.hasNext()) {
                 String line = allLines.next();
-                code += line + "\n";
+                strb.append(line + "\n");
             }
             br.close();
         } catch (IOException e) {
             e.printStackTrace();
         }
-        return code;
+        return strb.toString();
     }
 
-    private String[] listify() {
-        return code.split("(\\s+|((?<=[^a-zA-Z0-9_=><])|(?=[^a-zA-Z0-9_=><])))|(?=(>=|<=|==))|(?<=(>=|<=|==))");
+    private ArrayList<String> listify(String code) {
+        ArrayList<String> result = new ArrayList<String>();
+        char[] chararr = code.toCharArray();
+        StringBuffer buf = new StringBuffer();
+        for(int i = 0; i < chararr.length; i++) {
+            if (chararr[i] == '=' || chararr[i] == '<' || chararr[i] == '>') {
+                if (buf.length() > 0) {
+                    result.add(buf.toString());
+                    buf.delete(0, buf.length());
+                }
+                if (chararr.length+1 > i) {
+                    if (chararr[i+1] == '=' || chararr[i+1] == '<' || chararr[i+1] == '>') {
+                        result.add(String.valueOf(chararr[i]+String.valueOf(chararr[i+1])));
+                        i++;
+                    } else {
+                        result.add(String.valueOf(chararr[i]));
+                    }
+                }
+            } else if (!(chararr[i] >= 'A' && chararr[i] <= 'Z' || chararr[i] >= 'a' && chararr[i] <= 'z' || chararr[i] >= '0' && chararr[i] <= '9' || chararr[i] == '_')) {
+                if (buf.length() > 0) {
+                    result.add(buf.toString());
+                    buf.delete(0, buf.length());
+                }
+                result.add(String.valueOf(chararr[i]));
+            } else {
+                buf.append(chararr[i]);
+            }
+        }
+        if (buf.length() > 0) {
+            result.add(buf.toString());
+            buf.delete(0, buf.length());
+        }
+        return result;
     }
 
-    private void preprocessCode() {
+    private String preprocessCode(String code) {
         //Removes comments
         code = code.replaceAll("//.{0,}\n", "");
         code = code.replaceAll("/\\*(\n|.){0,}\\*/", "");
 
-        code = code.trim();
+        return code.trim();
     }
 
-    private void convert_tokens(String[] strings) {
+    private void convert_tokens(ArrayList<String> strings) {
         for (String string : strings) {
             if (SYMBOLS.containsKey(string)) {
                 write_token(SYMBOLS.get(string));
@@ -111,6 +140,8 @@ public class Lexer {
             } else {
                 return "error";
             }
+        } else if (string.matches("\\s+")) {
+            return "";
         }
         return "failed";
     }
